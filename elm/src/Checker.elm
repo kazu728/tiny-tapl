@@ -1,0 +1,164 @@
+module Checker exposing (Param, Term(..), Type(..), TypeEnv, show, typecheck)
+
+import Dict exposing (Dict)
+
+
+type Type
+    = Boolean
+    | Number
+    | Func (List Param) Type
+
+
+type alias Param =
+    { name : String
+    , type_ : Type
+    }
+
+
+type Term
+    = BooleanLiteral Bool
+    | NumberLiteral Float
+    | Conditional Term Term Term
+    | Addition Term Term
+    | Variable String
+    | Function (List Param) Term
+    | Call Term (List Term)
+
+
+type alias TypeEnv =
+    Dict String Type
+
+
+typecheck : Term -> TypeEnv -> Result String Type
+typecheck t env =
+    case t of
+        BooleanLiteral _ ->
+            Ok Boolean
+
+        NumberLiteral _ ->
+            Ok Number
+
+        Conditional condition thenBranch elseBranch ->
+            expect Boolean condition env
+                |> Result.andThen
+                    (\_ ->
+                        Result.map2 Tuple.pair
+                            (typecheck thenBranch env)
+                            (typecheck elseBranch env)
+                    )
+                |> Result.andThen
+                    (\( thenType, elseType ) ->
+                        if typeEq thenType elseType then
+                            Ok thenType
+
+                        else
+                            Err "then and else have different types"
+                    )
+
+        Addition left right ->
+            expect Number left env
+                |> Result.andThen (\_ -> expect Number right env)
+
+        Variable name ->
+            lookup name env
+
+        Function params body ->
+            addParams params env
+                |> typecheck body
+                |> Result.map (Func params)
+
+        Call func args ->
+            typecheck func env
+                |> Result.andThen
+                    (\funcType ->
+                        case funcType of
+                            Func params retType ->
+                                if List.length params /= List.length args then
+                                    Err "wrong number of arguments"
+
+                                else
+                                    checkArgs params args env
+                                        |> Result.map (\_ -> retType)
+
+                            _ ->
+                                Err "function type expected"
+                    )
+
+
+expect : Type -> Term -> TypeEnv -> Result String Type
+expect expected t env =
+    typecheck t env
+        |> Result.andThen
+            (\actual ->
+                if typeEq actual expected then
+                    Ok actual
+
+                else
+                    Err (show expected ++ " expected")
+            )
+
+
+typeEq : Type -> Type -> Bool
+typeEq ty1 ty2 =
+    case ( ty1, ty2 ) of
+        ( Boolean, Boolean ) ->
+            True
+
+        ( Number, Number ) ->
+            True
+
+        ( Func params1 ret1, Func params2 ret2 ) ->
+            List.map .type_ params1 == List.map .type_ params2 && typeEq ret1 ret2
+
+        _ ->
+            False
+
+
+lookup : String -> TypeEnv -> Result String Type
+lookup name env =
+    case Dict.get name env of
+        Just ty ->
+            Ok ty
+
+        Nothing ->
+            Err ("unknown variable: " ++ name)
+
+
+addParams : List Param -> TypeEnv -> TypeEnv
+addParams params env =
+    List.foldl (\p env_ -> Dict.insert p.name p.type_ env_) env params
+
+
+checkArgs : List Param -> List Term -> TypeEnv -> Result String ()
+checkArgs params args env =
+    case ( params, args ) of
+        ( [], [] ) ->
+            Ok ()
+
+        ( p :: paramRest, arg :: argRest ) ->
+            typecheck arg env
+                |> Result.andThen
+                    (\argType ->
+                        if typeEq argType p.type_ then
+                            checkArgs paramRest argRest env
+
+                        else
+                            Err "parameter type mismatch"
+                    )
+
+        _ ->
+            Err "wrong number of arguments"
+
+
+show : Type -> String
+show type_ =
+    case type_ of
+        Boolean ->
+            "boolean"
+
+        Number ->
+            "number"
+
+        Func _ _ ->
+            "function"
+

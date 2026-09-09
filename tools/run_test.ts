@@ -25,6 +25,8 @@ Deno.test("tiny-ts-parser の AST を Elm で型検査する", async (test) => {
     ["false", "boolean"],
     ["1 + 2", "number"],
     ["true ? 1 : 2", "number"],
+    ["(x: number) => x", "function"],
+    ["((x: number) => x)(1)", "number"],
   ] as const;
 
   for (const [source, expected] of cases) {
@@ -39,20 +41,17 @@ Deno.test("tiny-ts-parser の AST を Elm で型検査する", async (test) => {
 });
 
 Deno.test("型エラーを拒否する", async () => {
-  const output = await run("true ? 1 : false");
+  const cases = [
+    ["true ? 1 : false", "then and else have different types"],
+    ["((x: number) => x)(true)", "parameter type mismatch"],
+    ["x + 1", "unknown variable: x"],
+    ["(x: boolean) => x + 1", "number expected"],
+  ] as const;
 
-  assertEquals(output.code, 1);
-  assertEquals(output.stdout, "");
-  assertStringIncludes(output.stderr, "then and else have different types");
-});
-
-Deno.test("basic にない構文を Elm の境界で拒否する", async () => {
-  const output = await run("(x: number) => x");
-
-  assertEquals(output.code, 1);
-  assertEquals(output.stdout, "");
-  assertStringIncludes(
-    output.stderr,
-    "basic では扱えない項です: func",
-  );
+  for (const [source, expected] of cases) {
+    const output = await run(source);
+    assertEquals(output.code, 1);
+    assertEquals(output.stdout, "");
+    assertStringIncludes(output.stderr, expected);
+  }
 });

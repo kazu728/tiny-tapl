@@ -1,7 +1,8 @@
 port module Main exposing (main)
 
-import Basic
-import Basic.Decoder as Decoder
+import Checker
+import Decoder
+import Dict
 import Json.Decode as Decode
 import Platform
 
@@ -26,10 +27,10 @@ report json =
     case
         Decode.decodeValue Decoder.term json
             |> Result.mapError Decode.errorToString
-            |> Result.andThen Basic.typecheck
+            |> Result.andThen (\term -> Checker.typecheck term Dict.empty)
     of
         Ok ty ->
-            stdout (Basic.show ty)
+            stdout (Checker.show ty)
 
         Err error ->
             stderr error
