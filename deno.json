@@ -1,10 +1,15 @@
 {
   "tasks": {
     "build": "elm make src/Main.elm --optimize --output=build/main.js",
+    "format": "elm-format --yes src tests",
+    "format:check": "elm-format --validate src tests",
     "run": {
       "command": "deno run --quiet --allow-env --allow-sys=cpus --allow-read run.ts",
       "dependencies": ["build"]
     },
-    "test": "elm-test"
+    "test": {
+      "command": "elm-test",
+      "dependencies": ["format:check"]
+    }
   }
 }

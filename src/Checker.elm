@@ -172,4 +172,3 @@ show type_ =
 
         Func _ _ ->
             "function"
-
