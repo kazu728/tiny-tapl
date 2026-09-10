@@ -23,6 +23,8 @@ type Term
     | Variable String
     | Function (List Param) Term
     | Call Term (List Term)
+    | Seq Term Term
+    | Const String Term Term
 
 
 type alias TypeEnv =
@@ -83,6 +85,15 @@ typecheck t env =
                             _ ->
                                 Err "function type expected"
                     )
+
+        Seq body rest ->
+            typecheck body env
+                |> Result.andThen (\_ -> typecheck rest env)
+
+        Const name init rest ->
+            typecheck init env
+                |> Result.andThen
+                    (\initType -> typecheck rest (Dict.insert name initType env))
 
 
 expect : Type -> Term -> TypeEnv -> Result String Type

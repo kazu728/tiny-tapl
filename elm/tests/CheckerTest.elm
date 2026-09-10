@@ -102,4 +102,44 @@ suite =
                     (Call (NumberLiteral 1) [])
                     Dict.empty
                     |> Expect.equal (Err "function type expected")
+        , test "const は束縛を残りの式に引き継ぐ" <|
+            \_ ->
+                Checker.typecheck
+                    (Const "x" (NumberLiteral 1) (Variable "x"))
+                    Dict.empty
+                    |> Expect.equal (Ok Number)
+        , test "const の初期化式は束縛前に検査される" <|
+            \_ ->
+                Checker.typecheck
+                    (Const "x" (Variable "x") (NumberLiteral 1))
+                    Dict.empty
+                    |> Expect.equal (Err "unknown variable: x")
+        , test "const の初期化式は元の環境で検査される" <|
+            \_ ->
+                Checker.typecheck
+                    (Const "x" (Variable "y") (Variable "x"))
+                    (Dict.fromList [ ( "y", Number ) ])
+                    |> Expect.equal (Ok Number)
+        , test "const で束縛した関数を呼べる" <|
+            \_ ->
+                Checker.typecheck
+                    (Const
+                        "f"
+                        (Function [ { name = "x", type_ = Number } ] (Variable "x"))
+                        (Call (Variable "f") [ NumberLiteral 1 ])
+                    )
+                    Dict.empty
+                    |> Expect.equal (Ok Number)
+        , test "seq は body の型を捨てて残りの式の型を返す" <|
+            \_ ->
+                Checker.typecheck
+                    (Seq (NumberLiteral 1) (BooleanLiteral True))
+                    Dict.empty
+                    |> Expect.equal (Ok Boolean)
+        , test "seq は body も型検査する" <|
+            \_ ->
+                Checker.typecheck
+                    (Seq (Variable "x") (NumberLiteral 1))
+                    Dict.empty
+                    |> Expect.equal (Err "unknown variable: x")
         ]

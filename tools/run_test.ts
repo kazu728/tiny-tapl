@@ -27,6 +27,9 @@ Deno.test("tiny-ts-parser の AST を Elm で型検査する", async (test) => {
     ["true ? 1 : 2", "number"],
     ["(x: number) => x", "function"],
     ["((x: number) => x)(1)", "number"],
+    ["const x = 1; x + 1", "number"],
+    ["1 + 1; true", "boolean"],
+    ["const f = (x: number) => x; f(1)", "number"],
   ] as const;
 
   for (const [source, expected] of cases) {
@@ -46,6 +49,8 @@ Deno.test("型エラーを拒否する", async () => {
     ["((x: number) => x)(true)", "parameter type mismatch"],
     ["x + 1", "unknown variable: x"],
     ["(x: boolean) => x + 1", "number expected"],
+    ["const x = true; x + 1", "number expected"],
+    ["x; 1", "unknown variable: x"],
   ] as const;
 
   for (const [source, expected] of cases) {

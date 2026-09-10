@@ -45,6 +45,17 @@ termOfTag tag =
                 (Decode.field "func" lazyTerm)
                 (Decode.field "args" (Decode.list lazyTerm))
 
+        "seq" ->
+            Decode.map2 Seq
+                (Decode.field "body" lazyTerm)
+                (Decode.field "rest" lazyTerm)
+
+        "const" ->
+            Decode.map3 Const
+                (Decode.field "name" Decode.string)
+                (Decode.field "init" lazyTerm)
+                (Decode.field "rest" lazyTerm)
+
         _ ->
             Decode.fail ("未知の項です: " ++ tag)
 
