@@ -14,7 +14,7 @@ const scope = {} as {
   };
 };
 
-new Function(await Deno.readTextFile(new URL("../elm/build/main.js", import.meta.url))).call(scope);
+new Function(await Deno.readTextFile(new URL("./build/main.js", import.meta.url))).call(scope);
 
 const app = scope.Elm.Main.init({ flags: parseBasic(source) });
 

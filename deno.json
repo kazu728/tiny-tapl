@@ -1,19 +1,10 @@
 {
   "tasks": {
-    "build": "cd elm && elm make src/Main.elm --optimize --output=build/main.js",
+    "build": "elm make src/Main.elm --optimize --output=build/main.js",
     "run": {
-      "command": "deno task run:compiled",
+      "command": "deno run --quiet --allow-env --allow-sys=cpus --allow-read run.ts",
       "dependencies": ["build"]
     },
-    "run:compiled": "deno run --quiet --allow-env --allow-sys=cpus --allow-read tools/run.ts",
-    "test": "deno task test:elm && deno task test:integration",
-    "test:elm": "cd elm && elm-test",
-    "test:integration": {
-      "command": "deno cache tools/run.ts && deno test --allow-env=HOME --allow-run=deno tools/run_test.ts",
-      "dependencies": ["build"]
-    }
-  },
-  "imports": {
-    "@std/assert": "jsr:@std/assert@1"
+    "test": "elm-test"
   }
 }
