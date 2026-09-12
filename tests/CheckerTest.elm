@@ -142,4 +142,81 @@ suite =
                     (Seq (Variable "x") (NumberLiteral 1))
                     Dict.empty
                     |> Expect.equal (Err "unknown variable: x")
+        , test "オブジェクトの型を返す" <|
+            \_ ->
+                Checker.typecheck
+                    (ObjectNew
+                        [ { name = "x", term = NumberLiteral 1 }
+                        , { name = "y", term = BooleanLiteral True }
+                        ]
+                    )
+                    Dict.empty
+                    |> Expect.equal
+                        (Ok
+                            (Object
+                                [ { name = "x", type_ = Number }
+                                , { name = "y", type_ = Boolean }
+                                ]
+                            )
+                        )
+        , test "オブジェクトのプロパティも型検査する" <|
+            \_ ->
+                Checker.typecheck
+                    (ObjectNew [ { name = "x", term = Variable "nope" } ])
+                    Dict.empty
+                    |> Expect.equal (Err "unknown variable: nope")
+        , test "プロパティ取得はプロパティの型を返す" <|
+            \_ ->
+                Checker.typecheck
+                    (ObjectGet
+                        (ObjectNew [ { name = "x", term = NumberLiteral 1 } ])
+                        "x"
+                    )
+                    Dict.empty
+                    |> Expect.equal (Ok Number)
+        , test "存在しないプロパティの取得を拒否する" <|
+            \_ ->
+                Checker.typecheck
+                    (ObjectGet
+                        (ObjectNew [ { name = "x", term = NumberLiteral 1 } ])
+                        "y"
+                    )
+                    Dict.empty
+                    |> Expect.equal (Err "unknown property: y")
+        , test "オブジェクトでない値のプロパティ取得を拒否する" <|
+            \_ ->
+                Checker.typecheck
+                    (ObjectGet (NumberLiteral 1) "x")
+                    Dict.empty
+                    |> Expect.equal (Err "object expected")
+        , test "プロパティが一致すればオブジェクト同士は同じ型になる" <|
+            \_ ->
+                Checker.typecheck
+                    (Conditional
+                        (BooleanLiteral True)
+                        (ObjectNew [ { name = "x", term = NumberLiteral 1 } ])
+                        (ObjectNew [ { name = "x", term = NumberLiteral 2 } ])
+                    )
+                    Dict.empty
+                    |> Expect.equal (Ok (Object [ { name = "x", type_ = Number } ]))
+        , test "プロパティが違うオブジェクト同士は別の型になる" <|
+            \_ ->
+                Checker.typecheck
+                    (Conditional
+                        (BooleanLiteral True)
+                        (ObjectNew [ { name = "x", term = NumberLiteral 1 } ])
+                        (ObjectNew [ { name = "y", term = NumberLiteral 1 } ])
+                    )
+                    Dict.empty
+                    |> Expect.equal (Err "then and else have different types")
+        , test "const で束縛したオブジェクトのプロパティを取得できる" <|
+            \_ ->
+                Checker.typecheck
+                    (Const
+                        "o"
+                        (ObjectNew [ { name = "x", term = NumberLiteral 1 } ])
+                        (ObjectGet (Variable "o") "x")
+                    )
+                    Dict.empty
+                    |> Expect.equal (Ok Number)
         ]

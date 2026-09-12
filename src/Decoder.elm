@@ -1,6 +1,6 @@
 module Decoder exposing (term)
 
-import Checker exposing (Param, Term(..), Type(..))
+import Checker exposing (Param, Property, PropertyTerm, Term(..), Type(..))
 import Json.Decode as Decode exposing (Decoder)
 
 
@@ -56,6 +56,15 @@ termOfTag tag =
                 (Decode.field "init" lazyTerm)
                 (Decode.field "rest" lazyTerm)
 
+        "objectNew" ->
+            Decode.map ObjectNew
+                (Decode.field "props" (Decode.list propertyTermDecoder))
+
+        "objectGet" ->
+            Decode.map2 ObjectGet
+                (Decode.field "obj" lazyTerm)
+                (Decode.field "propName" Decode.string)
+
         _ ->
             Decode.fail ("未知の項です: " ++ tag)
 
@@ -65,6 +74,20 @@ paramDecoder =
     Decode.map2 Param
         (Decode.field "name" Decode.string)
         (Decode.field "type" typeDecoder)
+
+
+propertyDecoder : Decoder Property
+propertyDecoder =
+    Decode.map2 Property
+        (Decode.field "name" Decode.string)
+        (Decode.field "type" typeDecoder)
+
+
+propertyTermDecoder : Decoder PropertyTerm
+propertyTermDecoder =
+    Decode.map2 PropertyTerm
+        (Decode.field "name" Decode.string)
+        (Decode.field "term" lazyTerm)
 
 
 typeDecoder : Decoder Type
@@ -85,6 +108,10 @@ typeOfTag tag =
             Decode.map2 Func
                 (Decode.field "params" (Decode.list paramDecoder))
                 (Decode.field "retType" lazyType)
+
+        "Object" ->
+            Decode.map Object
+                (Decode.field "props" (Decode.list propertyDecoder))
 
         _ ->
             Decode.fail ("未知の型です: " ++ tag)

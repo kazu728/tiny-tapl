@@ -30,6 +30,22 @@ suite =
                 decode constJson
                     |> Expect.equal
                         (Ok (Const "x" (NumberLiteral 1) (Addition (Variable "x") (NumberLiteral 2))))
+        , test "オブジェクト生成の項を復元する" <|
+            \_ ->
+                decode objectNewJson
+                    |> Expect.equal
+                        (Ok
+                            (ObjectNew
+                                [ { name = "x", term = NumberLiteral 1 }
+                                , { name = "y", term = BooleanLiteral True }
+                                ]
+                            )
+                        )
+        , test "プロパティ取得の項を復元する" <|
+            \_ ->
+                decode objectGetJson
+                    |> Expect.equal
+                        (Ok (ObjectGet (ObjectNew [ { name = "x", term = NumberLiteral 1 } ]) "x"))
         , test "未知の項を拒否する" <|
             \_ ->
                 case decode unsupportedJson of
@@ -66,6 +82,16 @@ seqJson =
 constJson : String
 constJson =
     """{"tag":"const","name":"x","init":{"tag":"number","n":1},"rest":{"tag":"add","left":{"tag":"var","name":"x"},"right":{"tag":"number","n":2}}}"""
+
+
+objectNewJson : String
+objectNewJson =
+    """{"tag":"objectNew","props":[{"name":"x","term":{"tag":"number","n":1}},{"name":"y","term":{"tag":"true"}}]}"""
+
+
+objectGetJson : String
+objectGetJson =
+    """{"tag":"objectGet","obj":{"tag":"objectNew","props":[{"name":"x","term":{"tag":"number","n":1}}]},"propName":"x"}"""
 
 
 unsupportedJson : String

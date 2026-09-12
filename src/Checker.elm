@@ -1,17 +1,31 @@
-module Checker exposing (Param, Term(..), Type(..), TypeEnv, show, typecheck)
+module Checker exposing (Param, Property, PropertyTerm, Term(..), Type(..), TypeEnv, show, typecheck)
 
 import Dict exposing (Dict)
+import List.Extra as List
 
 
 type Type
     = Boolean
     | Number
     | Func (List Param) Type
+    | Object (List Property)
 
 
 type alias Param =
     { name : String
     , type_ : Type
+    }
+
+
+type alias Property =
+    { name : String
+    , type_ : Type
+    }
+
+
+type alias PropertyTerm =
+    { name : String
+    , term : Term
     }
 
 
@@ -25,6 +39,8 @@ type Term
     | Call Term (List Term)
     | Seq Term Term
     | Const String Term Term
+    | ObjectNew (List PropertyTerm)
+    | ObjectGet Term String
 
 
 type alias TypeEnv =
@@ -95,6 +111,28 @@ typecheck t env =
                 |> Result.andThen
                     (\initType -> typecheck rest (Dict.insert name initType env))
 
+        ObjectNew props ->
+            props
+                |> List.map
+                    (\prop ->
+                        typecheck prop.term env
+                            |> Result.map (\propType -> { name = prop.name, type_ = propType })
+                    )
+                |> sequence
+                |> Result.map Object
+
+        ObjectGet obj propName ->
+            typecheck obj env
+                |> Result.andThen
+                    (\objType ->
+                        case objType of
+                            Object props ->
+                                getProp propName props
+
+                            _ ->
+                                Err "object expected"
+                    )
+
 
 expect : Type -> Term -> TypeEnv -> Result String Type
 expect expected t env =
@@ -120,6 +158,9 @@ typeEq ty1 ty2 =
 
         ( Func params1 ret1, Func params2 ret2 ) ->
             List.map .type_ params1 == List.map .type_ params2 && typeEq ret1 ret2
+
+        ( Object props1, Object props2 ) ->
+            props1 == props2
 
         _ ->
             False
@@ -161,6 +202,21 @@ checkArgs params args env =
             Err "wrong number of arguments"
 
 
+sequence : List (Result String a) -> Result String (List a)
+sequence =
+    List.foldr (Result.map2 (::)) (Ok [])
+
+
+getProp : String -> List Property -> Result String Type
+getProp name props =
+    case List.find (\p -> p.name == name) props of
+        Just prop ->
+            Ok prop.type_
+
+        Nothing ->
+            Err ("unknown property: " ++ name)
+
+
 show : Type -> String
 show type_ =
     case type_ of
@@ -172,3 +228,6 @@ show type_ =
 
         Func _ _ ->
             "function"
+
+        Object _ ->
+            "object"
