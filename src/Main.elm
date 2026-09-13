@@ -5,6 +5,7 @@ import Decoder
 import Dict
 import Json.Decode as Decode
 import Platform
+import Result.Extra as Result
 
 
 port stdout : String -> Cmd msg
@@ -24,13 +25,7 @@ main =
 
 report : Decode.Value -> Cmd msg
 report json =
-    case
-        Decode.decodeValue Decoder.term json
-            |> Result.mapError Decode.errorToString
-            |> Result.andThen (\term -> Checker.typecheck term Dict.empty)
-    of
-        Ok ty ->
-            stdout (Checker.show ty)
-
-        Err error ->
-            stderr error
+    Decode.decodeValue Decoder.term json
+        |> Result.mapError Decode.errorToString
+        |> Result.andThen (\term -> Checker.typecheck term Dict.empty)
+        |> Result.unpack stderr (\ty -> stdout (Checker.show ty))

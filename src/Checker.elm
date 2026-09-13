@@ -2,6 +2,7 @@ module Checker exposing (Param, Property, PropertyTerm, Term(..), Type(..), Type
 
 import Dict exposing (Dict)
 import List.Extra as List
+import Result.Extra as Result
 
 
 type Type
@@ -138,7 +139,7 @@ typecheck t env =
                         typecheck prop.term env
                             |> Result.map (\propType -> { name = prop.name, type_ = propType })
                     )
-                |> sequence
+                |> Result.combine
                 |> Result.map Object
 
         ObjectGet obj propName ->
@@ -157,14 +158,7 @@ typecheck t env =
 expect : Type -> Term -> TypeEnv -> Result String Type
 expect expected t env =
     typecheck t env
-        |> Result.andThen
-            (\actual ->
-                if subtype actual expected then
-                    Ok actual
-
-                else
-                    Err (show expected ++ " expected")
-            )
+        |> Result.filter (show expected ++ " expected") (\actual -> subtype actual expected)
 
 
 typeEq : Type -> Type -> Bool
@@ -229,12 +223,8 @@ subtypeParams params1 params2 =
 
 lookup : String -> TypeEnv -> Result String Type
 lookup name env =
-    case Dict.get name env of
-        Just ty ->
-            Ok ty
-
-        Nothing ->
-            Err ("unknown variable: " ++ name)
+    Dict.get name env
+        |> Result.fromMaybe ("unknown variable: " ++ name)
 
 
 addParams : List Param -> TypeEnv -> TypeEnv
@@ -263,19 +253,11 @@ checkArgs params args env =
             Err "wrong number of arguments"
 
 
-sequence : List (Result String a) -> Result String (List a)
-sequence =
-    List.foldr (Result.map2 (::)) (Ok [])
-
-
 getProp : String -> List Property -> Result String Type
 getProp name props =
-    case List.find (\p -> p.name == name) props of
-        Just prop ->
-            Ok prop.type_
-
-        Nothing ->
-            Err ("unknown property: " ++ name)
+    List.find (\p -> p.name == name) props
+        |> Maybe.map .type_
+        |> Result.fromMaybe ("unknown property: " ++ name)
 
 
 show : Type -> String
