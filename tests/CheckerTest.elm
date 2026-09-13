@@ -276,4 +276,104 @@ suite =
                     )
                     Dict.empty
                     |> Expect.equal (Ok Number)
+        , test "余分なプロパティを持つオブジェクトを引数に渡せる" <|
+            \_ ->
+                Checker.typecheck
+                    (Call
+                        (Function [ { name = "r", type_ = objA } ] (ObjectGet (Variable "r") "a"))
+                        [ ObjectNew
+                            [ { name = "a", term = NumberLiteral 1 }
+                            , { name = "b", term = BooleanLiteral True }
+                            ]
+                        ]
+                    )
+                    Dict.empty
+                    |> Expect.equal (Ok Number)
+        , test "ネストしたプロパティが部分型でも渡せる" <|
+            \_ ->
+                Checker.typecheck
+                    (Call
+                        (Function
+                            [ { name = "r", type_ = Object [ { name = "a", type_ = objA } ] } ]
+                            (ObjectGet (ObjectGet (Variable "r") "a") "a")
+                        )
+                        [ ObjectNew
+                            [ { name = "a"
+                              , term =
+                                    ObjectNew
+                                        [ { name = "a", term = NumberLiteral 1 }
+                                        , { name = "b", term = BooleanLiteral True }
+                                        ]
+                              }
+                            ]
+                        ]
+                    )
+                    Dict.empty
+                    |> Expect.equal (Ok Number)
+        , test "必要なプロパティが無ければ拒否する" <|
+            \_ ->
+                Checker.typecheck
+                    (Call
+                        (Function [ { name = "r", type_ = objA } ] (ObjectGet (Variable "r") "a"))
+                        [ ObjectNew [ { name = "b", term = NumberLiteral 1 } ] ]
+                    )
+                    Dict.empty
+                    |> Expect.equal (Err "parameter type mismatch")
+        , test "関数の引数は反変、戻り値は共変" <|
+            \_ ->
+                Checker.typecheck
+                    (Call
+                        (Function
+                            [ { name = "f", type_ = Func [ { name = "x", type_ = objAB } ] objA } ]
+                            (NumberLiteral 0)
+                        )
+                        [ Function [ { name = "x", type_ = objA } ]
+                            (ObjectNew
+                                [ { name = "a", term = NumberLiteral 1 }
+                                , { name = "b", term = NumberLiteral 2 }
+                                ]
+                            )
+                        ]
+                    )
+                    Dict.empty
+                    |> Expect.equal (Ok Number)
+        , test "戻り値が部分型でなければ拒否する" <|
+            \_ ->
+                Checker.typecheck
+                    (Call
+                        (Function
+                            [ { name = "f", type_ = Func [ { name = "x", type_ = objAB } ] objAB } ]
+                            (NumberLiteral 0)
+                        )
+                        [ Function [ { name = "x", type_ = objA } ]
+                            (ObjectNew [ { name = "a", term = NumberLiteral 1 } ])
+                        ]
+                    )
+                    Dict.empty
+                    |> Expect.equal (Err "parameter type mismatch")
+        , test "recFunc の body は戻り型の部分型でも良い" <|
+            \_ ->
+                Checker.typecheck
+                    (RecFunc "f"
+                        [ { name = "n", type_ = Number } ]
+                        objA
+                        (ObjectNew
+                            [ { name = "a", term = NumberLiteral 1 }
+                            , { name = "b", term = BooleanLiteral True }
+                            ]
+                        )
+                        (Variable "f")
+                    )
+                    Dict.empty
+                    |> Expect.equal (Ok (Func [ { name = "n", type_ = Number } ] objA))
         ]
+
+
+objA : Type
+objA =
+    Object [ { name = "a", type_ = Number } ]
+
+
+objAB : Type
+objAB =
+    Object [ { name = "a", type_ = Number }, { name = "b", type_ = Number } ]

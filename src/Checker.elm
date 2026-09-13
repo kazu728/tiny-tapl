@@ -122,7 +122,7 @@ typecheck t env =
                 |> typecheck body
                 |> Result.andThen
                     (\bodyType ->
-                        if typeEq bodyType retType then
+                        if subtype bodyType retType then
                             env
                                 |> Dict.insert funcName funcType
                                 |> typecheck rest
@@ -159,7 +159,7 @@ expect expected t env =
     typecheck t env
         |> Result.andThen
             (\actual ->
-                if typeEq actual expected then
+                if subtype actual expected then
                     Ok actual
 
                 else
@@ -181,6 +181,47 @@ typeEq ty1 ty2 =
 
         ( Object props1, Object props2 ) ->
             props1 == props2
+
+        _ ->
+            False
+
+
+subtype : Type -> Type -> Bool
+subtype ty1 ty2 =
+    case ( ty1, ty2 ) of
+        ( Boolean, Boolean ) ->
+            True
+
+        ( Number, Number ) ->
+            True
+
+        ( Func params1 ret1, Func params2 ret2 ) ->
+            subtypeParams params2 params1 && subtype ret1 ret2
+
+        ( Object props1, Object props2 ) ->
+            List.all
+                (\prop2 ->
+                    case List.find (\prop1 -> prop1.name == prop2.name) props1 of
+                        Just prop1 ->
+                            subtype prop1.type_ prop2.type_
+
+                        Nothing ->
+                            False
+                )
+                props2
+
+        _ ->
+            False
+
+
+subtypeParams : List Param -> List Param -> Bool
+subtypeParams params1 params2 =
+    case ( params1, params2 ) of
+        ( [], [] ) ->
+            True
+
+        ( p1 :: rest1, p2 :: rest2 ) ->
+            subtype p1.type_ p2.type_ && subtypeParams rest1 rest2
 
         _ ->
             False
@@ -211,7 +252,7 @@ checkArgs params args env =
             typecheck arg env
                 |> Result.andThen
                     (\argType ->
-                        if typeEq argType p.type_ then
+                        if subtype argType p.type_ then
                             checkArgs paramRest argRest env
 
                         else
