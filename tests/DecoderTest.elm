@@ -30,6 +30,18 @@ suite =
                 decode constJson
                     |> Expect.equal
                         (Ok (Const "x" (NumberLiteral 1) (Addition (Variable "x") (NumberLiteral 2))))
+        , test "再帰関数の項を復元する" <|
+            \_ ->
+                decode recFuncJson
+                    |> Expect.equal
+                        (Ok
+                            (RecFunc "f"
+                                [ { name = "n", type_ = Number } ]
+                                Number
+                                (Variable "n")
+                                (Variable "f")
+                            )
+                        )
         , test "オブジェクト生成の項を復元する" <|
             \_ ->
                 decode objectNewJson
@@ -82,6 +94,11 @@ seqJson =
 constJson : String
 constJson =
     """{"tag":"const","name":"x","init":{"tag":"number","n":1},"rest":{"tag":"add","left":{"tag":"var","name":"x"},"right":{"tag":"number","n":2}}}"""
+
+
+recFuncJson : String
+recFuncJson =
+    """{"tag":"recFunc","funcName":"f","params":[{"name":"n","type":{"tag":"Number"}}],"retType":{"tag":"Number"},"body":{"tag":"var","name":"n"},"rest":{"tag":"var","name":"f"}}"""
 
 
 objectNewJson : String

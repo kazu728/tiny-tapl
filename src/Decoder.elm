@@ -56,6 +56,14 @@ termOfTag tag =
                 (Decode.field "init" lazyTerm)
                 (Decode.field "rest" lazyTerm)
 
+        "recFunc" ->
+            Decode.map5 RecFunc
+                (Decode.field "funcName" Decode.string)
+                (Decode.field "params" (Decode.list paramDecoder))
+                (Decode.field "retType" lazyType)
+                (Decode.field "body" lazyTerm)
+                (Decode.field "rest" lazyTerm)
+
         "objectNew" ->
             Decode.map ObjectNew
                 (Decode.field "props" (Decode.list propertyTermDecoder))

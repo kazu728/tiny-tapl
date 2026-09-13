@@ -142,6 +142,63 @@ suite =
                     (Seq (Variable "x") (NumberLiteral 1))
                     Dict.empty
                     |> Expect.equal (Err "unknown variable: x")
+        , test "recFunc の body と rest で自分自身を参照できる" <|
+            \_ ->
+                Checker.typecheck
+                    (RecFunc "f"
+                        [ { name = "b", type_ = Boolean }, { name = "n", type_ = Number } ]
+                        Number
+                        (Conditional
+                            (Variable "b")
+                            (NumberLiteral 1)
+                            (Call (Variable "f") [ BooleanLiteral True, Variable "n" ])
+                        )
+                        (Call (Variable "f") [ BooleanLiteral False, NumberLiteral 2 ])
+                    )
+                    Dict.empty
+                    |> Expect.equal (Ok Number)
+        , test "recFunc の戻り型が body と違えば拒否する" <|
+            \_ ->
+                Checker.typecheck
+                    (RecFunc "f"
+                        [ { name = "n", type_ = Number } ]
+                        Number
+                        (BooleanLiteral True)
+                        (NumberLiteral 0)
+                    )
+                    Dict.empty
+                    |> Expect.equal (Err "wrong return type")
+        , test "recFunc の自己呼び出しも型検査する" <|
+            \_ ->
+                Checker.typecheck
+                    (RecFunc "f"
+                        [ { name = "n", type_ = Number } ]
+                        Number
+                        (Call (Variable "f") [ BooleanLiteral True ])
+                        (Variable "f")
+                    )
+                    Dict.empty
+                    |> Expect.equal (Err "parameter type mismatch")
+        , test "recFunc のパラメータは rest から参照できない" <|
+            \_ ->
+                Checker.typecheck
+                    (RecFunc "f"
+                        [ { name = "n", type_ = Number } ]
+                        Number
+                        (Variable "n")
+                        (Variable "n")
+                    )
+                    Dict.empty
+                    |> Expect.equal (Err "unknown variable: n")
+        , test "recFunc の名前は外に漏れない" <|
+            \_ ->
+                Checker.typecheck
+                    (Seq
+                        (RecFunc "f" [ { name = "n", type_ = Number } ] Number (Variable "n") (NumberLiteral 0))
+                        (Variable "f")
+                    )
+                    Dict.empty
+                    |> Expect.equal (Err "unknown variable: f")
         , test "オブジェクトの型を返す" <|
             \_ ->
                 Checker.typecheck

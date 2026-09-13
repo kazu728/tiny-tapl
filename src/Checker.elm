@@ -39,6 +39,7 @@ type Term
     | Call Term (List Term)
     | Seq Term Term
     | Const String Term Term
+    | RecFunc String (List Param) Type Term Term
     | ObjectNew (List PropertyTerm)
     | ObjectGet Term String
 
@@ -110,6 +111,25 @@ typecheck t env =
             typecheck init env
                 |> Result.andThen
                     (\initType -> typecheck rest (Dict.insert name initType env))
+
+        RecFunc funcName params retType body rest ->
+            let
+                funcType =
+                    Func params retType
+            in
+            addParams params env
+                |> Dict.insert funcName funcType
+                |> typecheck body
+                |> Result.andThen
+                    (\bodyType ->
+                        if typeEq bodyType retType then
+                            env
+                                |> Dict.insert funcName funcType
+                                |> typecheck rest
+
+                        else
+                            Err "wrong return type"
+                    )
 
         ObjectNew props ->
             props
