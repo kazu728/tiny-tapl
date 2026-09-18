@@ -1,4 +1,4 @@
-import { parseObj } from "npm:tiny-ts-parser";
+import { parseRec } from "npm:tiny-ts-parser";
 
 const source = Deno.args.join(" ") ||
   await new Response(Deno.stdin.readable).text();
@@ -7,7 +7,7 @@ type Port = { subscribe: (fn: (value: string) => void) => void };
 const scope = {} as {
   Elm: {
     Main: {
-      init: (config: { flags: ReturnType<typeof parseObj> }) => {
+      init: (config: { flags: ReturnType<typeof parseRec> }) => {
         ports: { stdout: Port; stderr: Port };
       };
     };
@@ -16,7 +16,7 @@ const scope = {} as {
 
 new Function(await Deno.readTextFile(new URL("./build/main.js", import.meta.url))).call(scope);
 
-const app = scope.Elm.Main.init({ flags: parseObj(source) });
+const app = scope.Elm.Main.init({ flags: parseRec(source) });
 
 try {
   console.log(

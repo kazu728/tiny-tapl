@@ -10,6 +10,8 @@ type Type
     | Number
     | Func (List Param) Type
     | Object (List Property)
+    | Rec String Type
+    | TypeVar String
 
 
 type alias Param =
@@ -89,6 +91,7 @@ typecheck t env =
 
         Call func args ->
             typecheck func env
+                |> Result.map simplifyType
                 |> Result.andThen
                     (\funcType ->
                         case funcType of
@@ -144,6 +147,7 @@ typecheck t env =
 
         ObjectGet obj propName ->
             typecheck obj env
+                |> Result.map simplifyType
                 |> Result.andThen
                     (\objType ->
                         case objType of
@@ -163,62 +167,97 @@ expect expected t env =
 
 typeEq : Type -> Type -> Bool
 typeEq ty1 ty2 =
-    case ( ty1, ty2 ) of
-        ( Boolean, Boolean ) ->
-            True
+    subtype ty1 ty2 && subtype ty2 ty1
 
-        ( Number, Number ) ->
-            True
 
-        ( Func params1 ret1, Func params2 ret2 ) ->
-            List.map .type_ params1 == List.map .type_ params2 && typeEq ret1 ret2
+expandType : Type -> String -> Type -> Type
+expandType ty varName replacement =
+    let
+        expand t =
+            expandType t varName replacement
+    in
+    case ty of
+        Boolean ->
+            Boolean
 
-        ( Object props1, Object props2 ) ->
-            props1 == props2
+        Number ->
+            Number
+
+        Func params retType ->
+            Func
+                (List.map (\p -> { p | type_ = expand p.type_ }) params)
+                (expand retType)
+
+        Object props ->
+            Object (List.map (\p -> { p | type_ = expand p.type_ }) props)
+
+        Rec name body ->
+            if name == varName then
+                ty
+
+            else
+                Rec name (expand body)
+
+        TypeVar name ->
+            if name == varName then
+                replacement
+
+            else
+                ty
+
+
+simplifyType : Type -> Type
+simplifyType ty =
+    case ty of
+        Rec name body ->
+            simplifyType (expandType body name ty)
 
         _ ->
-            False
+            ty
 
 
 subtype : Type -> Type -> Bool
 subtype ty1 ty2 =
-    case ( ty1, ty2 ) of
-        ( Boolean, Boolean ) ->
-            True
-
-        ( Number, Number ) ->
-            True
-
-        ( Func params1 ret1, Func params2 ret2 ) ->
-            subtypeParams params2 params1 && subtype ret1 ret2
-
-        ( Object props1, Object props2 ) ->
-            List.all
-                (\prop2 ->
-                    case List.find (\prop1 -> prop1.name == prop2.name) props1 of
-                        Just prop1 ->
-                            subtype prop1.type_ prop2.type_
-
-                        Nothing ->
-                            False
-                )
-                props2
-
-        _ ->
-            False
+    subtypeSub ty1 ty2 []
 
 
-subtypeParams : List Param -> List Param -> Bool
-subtypeParams params1 params2 =
-    case ( params1, params2 ) of
-        ( [], [] ) ->
-            True
+subtypeSub : Type -> Type -> List ( Type, Type ) -> Bool
+subtypeSub ty1 ty2 seen =
+    if List.member ( ty1, ty2 ) seen then
+        True
 
-        ( p1 :: rest1, p2 :: rest2 ) ->
-            subtype p1.type_ p2.type_ && subtypeParams rest1 rest2
+    else
+        let
+            seen_ =
+                ( ty1, ty2 ) :: seen
+        in
+        case ( simplifyType ty1, simplifyType ty2 ) of
+            ( Boolean, Boolean ) ->
+                True
 
-        _ ->
-            False
+            ( Number, Number ) ->
+                True
+
+            ( Func params1 ret1, Func params2 ret2 ) ->
+                List.length params1
+                    == List.length params2
+                    && List.all (\( p1, p2 ) -> subtypeSub p2.type_ p1.type_ seen_) (List.zip params1 params2)
+                    && subtypeSub ret1 ret2 seen_
+
+            ( Object props1, Object props2 ) ->
+                List.all
+                    (\prop2 ->
+                        List.find (\prop1 -> prop1.name == prop2.name) props1
+                            |> Maybe.map (\prop1 -> subtypeSub prop1.type_ prop2.type_ seen_)
+                            |> Maybe.withDefault False
+                    )
+                    props2
+
+            ( TypeVar name1, TypeVar name2 ) ->
+                name1 == name2
+
+            _ ->
+                False
 
 
 lookup : String -> TypeEnv -> Result String Type
@@ -274,3 +313,9 @@ show type_ =
 
         Object _ ->
             "object"
+
+        Rec _ body ->
+            show body
+
+        TypeVar name ->
+            name

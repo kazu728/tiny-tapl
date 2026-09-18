@@ -121,6 +121,15 @@ typeOfTag tag =
             Decode.map Object
                 (Decode.field "props" (Decode.list propertyDecoder))
 
+        "Rec" ->
+            Decode.map2 Rec
+                (Decode.field "name" Decode.string)
+                (Decode.field "type" lazyType)
+
+        "TypeVar" ->
+            Decode.map TypeVar
+                (Decode.field "name" Decode.string)
+
         _ ->
             Decode.fail ("未知の型です: " ++ tag)
 

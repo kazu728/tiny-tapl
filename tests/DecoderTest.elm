@@ -42,6 +42,18 @@ suite =
                                 (Variable "f")
                             )
                         )
+        , test "再帰型を含む項を復元する" <|
+            \_ ->
+                decode recFuncRecJson
+                    |> Expect.equal
+                        (Ok
+                            (RecFunc "f"
+                                [ { name = "n", type_ = Number } ]
+                                (Rec "R" (Object [ { name = "a", type_ = TypeVar "R" } ]))
+                                (Variable "n")
+                                (Variable "f")
+                            )
+                        )
         , test "オブジェクト生成の項を復元する" <|
             \_ ->
                 decode objectNewJson
@@ -99,6 +111,11 @@ constJson =
 recFuncJson : String
 recFuncJson =
     """{"tag":"recFunc","funcName":"f","params":[{"name":"n","type":{"tag":"Number"}}],"retType":{"tag":"Number"},"body":{"tag":"var","name":"n"},"rest":{"tag":"var","name":"f"}}"""
+
+
+recFuncRecJson : String
+recFuncRecJson =
+    """{"tag":"recFunc","funcName":"f","params":[{"name":"n","type":{"tag":"Number"}}],"retType":{"tag":"Rec","name":"R","type":{"tag":"Object","props":[{"name":"a","type":{"tag":"TypeVar","name":"R"}}]}},"body":{"tag":"var","name":"n"},"rest":{"tag":"var","name":"f"}}"""
 
 
 objectNewJson : String

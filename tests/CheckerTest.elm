@@ -366,6 +366,106 @@ suite =
                     )
                     Dict.empty
                     |> Expect.equal (Ok (Func [ { name = "n", type_ = Number } ] objA))
+        , test "同じ再帰型の値同士は同じ型になる" <|
+            \_ ->
+                Checker.typecheck
+                    (Function
+                        [ { name = "x", type_ = recA } ]
+                        (Conditional (BooleanLiteral True) (Variable "x") (Variable "x"))
+                    )
+                    Dict.empty
+                    |> Expect.equal (Ok (Func [ { name = "x", type_ = recA } ] recA))
+        , test "名前が違っても構造が同じ再帰型は等しい" <|
+            \_ ->
+                Checker.typecheck
+                    (Function
+                        [ { name = "x", type_ = recA }
+                        , { name = "y", type_ = recB }
+                        ]
+                        (Conditional (BooleanLiteral True) (Variable "x") (Variable "y"))
+                    )
+                    Dict.empty
+                    |> Expect.equal
+                        (Ok
+                            (Func
+                                [ { name = "x", type_ = recA }
+                                , { name = "y", type_ = recB }
+                                ]
+                                recA
+                            )
+                        )
+        , test "再帰型のプロパティを取得できる" <|
+            \_ ->
+                Checker.typecheck
+                    (Function
+                        [ { name = "x", type_ = recA } ]
+                        (ObjectGet (Variable "x") "a")
+                    )
+                    Dict.empty
+                    |> Expect.equal (Ok (Func [ { name = "x", type_ = recA } ] recA))
+        , test "再帰型の関数を呼べる" <|
+            \_ ->
+                Checker.typecheck
+                    (Function
+                        [ { name = "f", type_ = recHungry } ]
+                        (Call (Variable "f") [ NumberLiteral 1 ])
+                    )
+                    Dict.empty
+                    |> Expect.equal (Ok (Func [ { name = "f", type_ = recHungry } ] recHungry))
+        , test "再帰型同士の部分型は成立する" <|
+            \_ ->
+                Checker.typecheck
+                    (Function
+                        [ { name = "x", type_ = recA } ]
+                        (Call
+                            (Function [ { name = "r", type_ = recA } ] (NumberLiteral 0))
+                            [ Variable "x" ]
+                        )
+                    )
+                    Dict.empty
+                    |> Expect.equal (Ok (Func [ { name = "x", type_ = recA } ] Number))
+        , test "余分なプロパティを持つ再帰型は部分型になる" <|
+            \_ ->
+                Checker.typecheck
+                    (Function
+                        [ { name = "s", type_ = recAB } ]
+                        (Call
+                            (Function [ { name = "t", type_ = recA } ] (NumberLiteral 0))
+                            [ Variable "s" ]
+                        )
+                    )
+                    Dict.empty
+                    |> Expect.equal (Ok (Func [ { name = "s", type_ = recAB } ] Number))
+        , test "関数の再帰型も展開して部分型を判定する" <|
+            \_ ->
+                Checker.typecheck
+                    (Function
+                        [ { name = "g", type_ = Func [ { name = "x", type_ = Number } ] recHungry } ]
+                        (Call
+                            (Function [ { name = "f", type_ = recHungry } ] (NumberLiteral 0))
+                            [ Variable "g" ]
+                        )
+                    )
+                    Dict.empty
+                    |> Expect.equal
+                        (Ok
+                            (Func
+                                [ { name = "g", type_ = Func [ { name = "x", type_ = Number } ] recHungry } ]
+                                Number
+                            )
+                        )
+        , test "構造の違う再帰型は部分型にならない" <|
+            \_ ->
+                Checker.typecheck
+                    (Function
+                        [ { name = "x", type_ = recA } ]
+                        (Call
+                            (Function [ { name = "r", type_ = recC } ] (NumberLiteral 0))
+                            [ Variable "x" ]
+                        )
+                    )
+                    Dict.empty
+                    |> Expect.equal (Err "parameter type mismatch")
         ]
 
 
@@ -377,3 +477,28 @@ objA =
 objAB : Type
 objAB =
     Object [ { name = "a", type_ = Number }, { name = "b", type_ = Number } ]
+
+
+recA : Type
+recA =
+    Rec "A" (Object [ { name = "a", type_ = TypeVar "A" } ])
+
+
+recB : Type
+recB =
+    Rec "B" (Object [ { name = "a", type_ = TypeVar "B" } ])
+
+
+recHungry : Type
+recHungry =
+    Rec "H" (Func [ { name = "n", type_ = Number } ] (TypeVar "H"))
+
+
+recAB : Type
+recAB =
+    Rec "AB" (Object [ { name = "a", type_ = TypeVar "AB" }, { name = "b", type_ = Number } ])
+
+
+recC : Type
+recC =
+    Rec "C" (Object [ { name = "c", type_ = TypeVar "C" } ])
